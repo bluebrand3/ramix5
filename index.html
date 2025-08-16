@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>البرنامج المحاسبي — نسخة كاملة</title>
+
+  <!-- Google Font -->
+  <link id="gfont" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;600;700&display=swap">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Tajawal','system-ui','Segoe UI','Arial'] },
+          colors: { primary: { DEFAULT: '#0ea5e9' } }
+        }
+      }
+    };
+  </script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- SheetJS for Excel 2021 export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-[#0f172a] dark:text-slate-100 font-sans">
+
+  <!-- Header -->
+  <header class="appbar">
+    <div class="wrap">
+      <div class="brand">
+        <img id="companyLogo" src="images/logo.png" alt="logo">
+        <div>
+          <div id="companyName" class="name">البرنامج المحاسبي</div>
+          <div class="sub">واجهة احترافية • تخزين محلي</div>
+        </div>
+      </div>
+
+      <nav class="topnav">
+        <div class="tabs">
+          <button class="tab tab-active" data-page="dashboard">الصفحة الرئيسية</button>
+          <button class="tab" data-page="sales">المبيعات</button>
+          <button class="tab" data-page="expenses">المصروفات</button>
+          <button class="tab" data-page="employees">الموظفون</button>
+          <button class="tab" data-page="suppliers">الموردون</button>
+          <button class="tab" data-page="settings">الإعدادات</button>
+        </div>
+      </nav>
+
+      <div class="actions">
+        <button id="themeToggle" class="iconbtn">🌞/🌙</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto p-4 space-y-6">
+
+    <!-- Dashboard -->
+    <section id="page-dashboard" class="page">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="card"><div class="muted">إجمالي المبيعات</div><div id="kpiSales" class="text-2xl font-extrabold mt-1">0 ر.س</div></div>
+        <div class="card"><div class="muted">إجمالي المصروفات</div><div id="kpiExpenses" class="text-2xl font-extrabold mt-1">0 ر.س</div></div>
+        <div class="card"><div class="muted">الربح التقريبي</div><div id="kpiProfit" class="text-2xl font-extrabold mt-1 text-emerald-500">0 ر.س</div></div>
+      </div>
+
+      <div class="card mt-2">
+        <div class="flex flex-wrap items-center gap-3">
+          <label>من <input id="homeFrom" type="date" class="input"></label>
+          <label>إلى <input id="homeTo" type="date" class="input"></label>
+          <button id="homeFilter" class="btn-primary">فلترة</button>
+        </div>
+        <canvas id="mainChart" class="mt-4"></canvas>
+      </div>
+    </section>
+
+    <!-- Sales -->
+    <section id="page-sales" class="page hidden space-y-4">
+      <details class="accordion" open>
+        <summary class="accordion-title">➕ إضافة مبيعات يومية</summary>
+        <div class="accordion-body">
+          <div class="flex flex-wrap gap-3">
+            <label>التاريخ <input id="saleDate" type="date" class="input"></label>
+            <label>الإجمالي <input id="saleTotal" type="number" class="input"></label>
+            <label>مدى <input id="saleMada" type="number" class="input"></label>
+            <label>تمارا <input id="saleTamara" type="number" class="input"></label>
+            <label>تابي <input id="saleTabby" type="number" class="input"></label>
+            <label>الصافي <input id="saleNet" type="text" class="input" readonly></label>
+            <button id="btnAddSale" class="btn-primary">إضافة</button>
+          </div>
+        </div>
+      </details>
+
+      <details class="accordion">
+        <summary class="accordion-title">📒 سجل المبيعات اليومية</summary>
+        <div class="accordion-body space-y-3">
+          <div class="flex flex-wrap items-center gap-3">
+            <label>من <input id="saleFrom" type="date" class="input"></label>
+            <label>إلى <input id="saleTo" type="date" class="input"></label>
+            <button id="saleFilterBtn" class="btn-primary">فلترة</button>
+            <button id="exportSales" class="btn-secondary">تصدير Excel 2021</button>
+            <button id="printSales" class="btn-secondary">🖨️ طباعة</button>
+          </div>
+          <div class="overflow-x-auto"><table id="tblSales" class="table"></table></div>
+        </div>
+      </details>
+    </section>
+
+    <!-- Expenses -->
+    <section id="page-expenses" class="page hidden space-y-4">
+      <details class="accordion" open>
+        <summary class="accordion-title">➕ إدخال مصروف جديد</summary>
+        <div class="accordion-body">
+          <div class="flex flex-wrap gap-3">
+            <label>التاريخ <input id="expDate" type="date" class="input"></label>
+            <label>الفرع <select id="expBranch" class="input"></select></label>
+            <label>الفئة <select id="expCat" class="input"></select></label>
+            <label>طريقة الدفع <select id="expMethod" class="input"><option>نقدي</option><option>تحويل بنكي</option></select></label>
+            <label>المبلغ <input id="expAmount" type="number" class="input"></label>
+            <label id="empSelectWrap" style="display:none">الموظف <select id="expEmployee" class="input"></select></label>
+            <button id="btnAddExpense" class="btn-primary">إضافة</button>
+          </div>
+          <p class="text-sm text-slate-500 mt-2">عند اختيار <b>مصروف موظف</b> أو <b>راتب</b> سيُطلب اختيار الموظف ويُربط القيد به.</p>
+        </div>
+      </details>
+
+      <details class="accordion">
+        <summary class="accordion-title">📒 سجل المصروفات</summary>
+        <div class="accordion-body space-y-3">
+          <div class="flex flex-wrap items-center gap-3">
+            <label>من <input id="expFrom" type="date" class="input"></label>
+            <label>إلى <input id="expTo" type="date" class="input"></label>
+            <button id="expFilterBtn" class="btn-primary">فلترة</button>
+            <button id="exportExpenses" class="btn-secondary">تصدير Excel 2021</button>
+            <button id="printExpenses" class="btn-secondary">🖨️ طباعة</button>
+          </div>
+          <div class="overflow-x-auto"><table id="tblExpenses" class="table"></table></div>
+        </div>
+      </details>
+    </section>
+
+    <!-- Employees -->
+    <section id="page-employees" class="page hidden space-y-4">
+      <details class="accordion" open>
+        <summary class="accordion-title">➕ إضافة موظف جديد</summary>
+        <div class="accordion-body">
+          <div class="flex flex-wrap gap-3">
+            <label>الاسم <input id="empName" type="text" class="input"></label>
+            <label>الجوال <input id="empPhone" type="text" class="input"></label>
+            <label>المسمى <input id="empTitle" type="text" class="input"></label>
+            <label>الراتب الأساسي <input id="empSalary" type="number" class="input"></label>
+            <label>الفرع <input id="empBranch" type="text" class="input"></label>
+            <label>تاريخ التعيين <input id="empHire" type="date" class="input"></label>
+            <button id="btnAddEmp" class="btn-primary">إضافة</button>
+          </div>
+        </div>
+      </details>
+
+      <details class="accordion">
+        <summary class="accordion-title">💳 الرواتب</summary>
+        <div class="accordion-body space-y-3">
+          <div class="flex flex-wrap items-center gap-3">
+            <label>من <input id="empFrom" type="date" class="input"></label>
+            <label>إلى <input id="empTo" type="date" class="input"></label>
+            <button id="empFilterBtn" class="btn-primary">تطبيق</button>
+            <button id="exportEmployees" class="btn-secondary">تصدير Excel 2021</button>
+            <button id="printEmployees" class="btn-secondary">🖨️ طباعة كشف</button>
+          </div>
+          <div class="overflow-x-auto"><table id="tblEmployees" class="table"></table></div>
+        </div>
+      </details>
+    </section>
+
+    <!-- Suppliers -->
+    <section id="page-suppliers" class="page hidden space-y-4">
+      <details class="accordion" open>
+        <summary class="accordion-title">➕ إضافة مورد</summary>
+        <div class="accordion-body">
+          <div class="flex flex-wrap gap-3">
+            <label>الاسم <input id="supName" type="text" class="input"></label>
+            <label>الجوال <input id="supPhone" type="text" class="input"></label>
+            <button id="btnAddSupplier" class="btn-primary">إضافة</button>
+          </div>
+        </div>
+      </details>
+
+      <details class="accordion">
+        <summary class="accordion-title">📈 تحليل أرصدة الموردين</summary>
+        <div class="accordion-body">
+          <div class="flex flex-wrap items-center gap-3">
+            <label>من <input id="supFrom" type="date" class="input"></label>
+            <label>إلى <input id="supTo" type="date" class="input"></label>
+            <button id="supFilterBtn" class="btn-primary">تطبيق</button>
+            <button id="exportSup" class="btn-secondary">تصدير Excel 2021</button>
+            <button id="printSup" class="btn-secondary">🖨️ طباعة</button>
+          </div>
+          <div id="supplierSummary" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4"></div>
+        </div>
+      </details>
+
+      <details class="accordion">
+        <summary class="accordion-title">📒 بيان حركات الموردين</summary>
+        <div class="accordion-body">
+          <div class="overflow-x-auto"><table id="tblSupplierTx" class="table"></table></div>
+        </div>
+      </details>
+    </section>
+
+    <!-- Settings -->
+    <section id="page-settings" class="page hidden space-y-4">
+      <details class="accordion" open>
+        <summary class="accordion-title">🏢 بيانات الشركة</summary>
+        <div class="accordion-body">
+          <div class="flex flex-wrap gap-3">
+            <label>اسم الشركة <input id="companyNameInput" type="text" class="input" placeholder="اسم الشركة"></label>
+            <label>الشعار <input id="logoInput" type="file" class="input" accept="image/*"></label>
+          </div>
+        </div>
+      </details>
+
+      <details class="accordion">
+        <summary class="accordion-title">🏬 الفروع</summary>
+        <div class="accordion-body space-y-3">
+          <div class="flex flex-wrap gap-3">
+            <input id="branchName" class="input" placeholder="اسم الفرع" />
+            <button id="btnAddBranch" class="btn-primary">إضافة فرع</button>
+          </div>
+          <div class="overflow-x-auto"><table id="tblBranches" class="table"></table></div>
+        </div>
+      </details>
+
+      <details class="accordion">
+        <summary class="accordion-title">🏷️ فئات المصروف</summary>
+        <div class="accordion-body space-y-3">
+          <div class="flex flex-wrap gap-3">
+            <input id="catName" class="input" placeholder="اسم الفئة (كهرباء...)" />
+            <button id="btnAddCat" class="btn-primary">إضافة فئة</button>
+          </div>
+          <div class="overflow-x-auto"><table id="tblCats" class="table"></table></div>
+        </div>
+      </details>
+
+      <details class="accordion">
+        <summary class="accordion-title">🅰️ الخطوط</summary>
+        <div class="accordion-body">
+          <div class="flex flex-wrap items-center gap-3">
+            <select id="fontSelect" class="input">
+              <option value="">الافتراضي (Tajawal)</option>
+              <option>Cairo</option><option>Tajawal</option><option>Almarai</option>
+              <option>Amiri</option><option>Noto Kufi Arabic</option><option>IBM Plex Sans Arabic</option>
+              <option>Lateef</option><option>Changa</option><option>El Messiri</option><option>Harmattan</option>
+            </select>
+            <button id="applyFont" class="btn-secondary">اعتماد الخط</button>
+          </div>
+        </div>
+      </details>
+
+      <details class="accordion">
+        <summary class="accordion-title">🗄️ نسخة احتياطية</summary>
+        <div class="accordion-body flex flex-wrap items-center gap-3">
+          <button id="btnExportBackup" class="btn-primary">تصدير JSON</button>
+          <label for="btnImportBackup" class="btn-secondary cursor-pointer">استيراد JSON</label>
+          <input type="file" id="btnImportBackup" accept="application/json" class="hidden">
+        </div>
+      </details>
+
+      <details class="accordion">
+        <summary class="accordion-title">⬆️ ربط ورفع إلى GitHub</summary>
+        <div class="accordion-body space-y-3">
+          <div class="flex flex-wrap gap-3">
+            <label>المستخدم/المنظمة <input id="ghOwner" class="input" placeholder="owner"></label>
+            <label>المستودع <input id="ghRepo" class="input" placeholder="repo"></label>
+            <label>الفرع <input id="ghBranch" class="input" value="main" placeholder="main"></label>
+            <label>المجلد داخل المستودع <input id="ghPath" class="input" placeholder="backups"></label>
+            <label class="flex items-center gap-2"><input id="ghRemember" type="checkbox"> حفظ الرمز محليًا</label>
+            <label class="flex-1">رمز الوصول الشخصي (PAT) <input id="ghToken" class="input" type="password" placeholder="ghp_..."></label>
+          </div>
+          <div class="flex flex-wrap gap-3 items-center">
+            <button id="btnGhSave" class="btn-secondary">حفظ الإعدادات</button>
+            <button id="btnGhTest" class="btn-secondary">اختبار الاتصال</button>
+            <button id="btnGhBackup" class="btn-primary">رفع نسخة احتياطية الآن</button>
+            <label for="ghFile" class="btn-secondary cursor-pointer">اختيار ملف للرفع</label>
+            <input type="file" id="ghFile" class="hidden">
+            <button id="btnGhUploadFile" class="btn-secondary">رفع الملف المختار</button>
+          </div>
+          <div id="ghStatus" class="muted"></div>
+        </div>
+      </details>
+
+      <details class="accordion">
+        <summary class="accordion-title">ℹ️ حول</summary>
+        <div class="accordion-body">تمت البرمجة بواسطة الأستاذ رامي إسماعيل — 📞 0562000307</div>
+      </details>
+
+    </section>
+  </main>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
